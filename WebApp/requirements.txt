@@ -1,0 +1,7 @@
+streamlit
+httpx
+websocket-client
+python-dotenv
+pydub
+streamlit-player
+streamlit-tags

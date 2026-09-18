@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-dotenv
+yt-dlp
+groq
+google-generativeai
+pydantic
+transformers==4.46.3
+torch
