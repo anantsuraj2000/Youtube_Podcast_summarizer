@@ -2,9 +2,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uuid, threading
 
-from app.audio_extractor import extract_audio_from_youtube
+from app.audio_extractor import extract_audio_from_youtube,get_video_title
 from app.transcriber import transcribe_audio
-from app.summarizer import extractive_summarize
+from app.summarizer import extractive_summarize,SummarizationError
 from app.refiner import refine_summary
 
 app = FastAPI()
@@ -40,13 +40,27 @@ def run_pipeline(job_id: str, url: str):
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["error"] = str(e)
 
+    except (AudioExtractionError, SummarizationError) as e:
+        # Known, expected failure — show the clean message
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["error"] = str(e)
+
 
 @app.post("/api/jobs")
 def create_job(request: JobRequest):
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {"job_id": job_id, "status": "queued", "source": request.source}
+    try:
+        title = get_video_title(request.source)
+    except Exception:
+        title = "Untitled video"
 
-    # Runs in a background thread so the API responds immediately
+    jobs[job_id] = {
+        "job_id": job_id,
+        "status": "queued",
+        "source": request.source,
+        "title": title,
+    }
+
     thread = threading.Thread(target=run_pipeline, args=(job_id, request.source))
     thread.start()
 
