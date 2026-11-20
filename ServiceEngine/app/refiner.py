@@ -1,5 +1,5 @@
 import spacy
-
+from app.srl import safe_extract_roles
 _nlp = spacy.load("en_core_web_sm")
 
 
@@ -10,14 +10,10 @@ def extract_entities(text: str) -> list[dict]:
 
 
 def refine_summary(summary: str) -> dict:
-    """
-    Enriches the extractive summary with named entities,
-    matching the paper's NER-based refinement stage.
-    """
     entities = extract_entities(summary)
-
     return {
         "summary": summary,
         "entities": entities,
         "entity_count": len(entities),
+        "roles": safe_extract_roles(summary, "en", _nlp),
     }

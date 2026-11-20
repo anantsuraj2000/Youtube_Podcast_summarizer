@@ -79,5 +79,6 @@ def status_color(status: str) -> str:
         "refining": "#1E88A8",
         "done": "#2E9E5B",
         "failed": "#E5484D",
+        "unsupported_language": "#C98A00",
     }
     return colors.get(status, "#5C6B7A")

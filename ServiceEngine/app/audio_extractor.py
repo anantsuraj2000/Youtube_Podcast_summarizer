@@ -1,5 +1,6 @@
 import yt_dlp
 import os
+import subprocess
 import uuid
 
 AUDIO_DIR = "temp_audio"
@@ -22,9 +23,9 @@ def extract_audio_from_youtube(youtube_url: str) -> str:
         "format": "bestaudio/best",
         "outtmpl": output_template,
         "postprocessors": [
-            {"key": "FFmpegExtractAudio", "preferredcodec": "wav", "preferredquality": "192"}
+        {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "64"}
         ],
-        "postprocessor_args": ["-ar", "16000", "-ac", "1"],
+        "postprocessor_args": ["-ar", "16000", "-ac", "1", "-b:a", "64k"],
         "quiet": True,
         "no_warnings": True,
     }
@@ -47,16 +48,15 @@ def extract_audio_from_youtube(youtube_url: str) -> str:
     except Exception as e:
         raise AudioExtractionError(f"Unexpected error during audio extraction: {e}")
 
-    wav_path = output_template + ".wav"
-    if not os.path.exists(wav_path):
+    audio_path = output_template + ".mp3"
+    if not os.path.exists(audio_path):
         raise AudioExtractionError("Audio file was not created — extraction may have silently failed.")
 
-    # Guard against near-empty audio (e.g. a 2-second clip, a corrupted stream)
-    if os.path.getsize(wav_path) < 5000:  # ~5KB, well below any real speech clip
-        os.remove(wav_path)
+    if os.path.getsize(audio_path) < 5000:
+        os.remove(audio_path)
         raise AudioExtractionError("Extracted audio is too short or empty to process.")
 
-    return wav_path
+    return audio_path
 
 
 def get_video_title(youtube_url: str) -> str:
@@ -67,3 +67,31 @@ def get_video_title(youtube_url: str) -> str:
             return info.get("title", "Untitled video")
     except Exception:
         return "Untitled video"
+
+def get_video_duration(youtube_url: str) -> float | None:
+    """Video length in seconds (None if it can't be read)."""
+    try:
+        ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            return ydl.extract_info(youtube_url, download=False).get("duration")
+    except Exception:
+        return None
+
+def prepare_uploaded_audio(src_path: str) -> str:
+    """
+    Converts a user-uploaded audio/video file to 16 kHz mono 64 kbps MP3 (same format the
+    YouTube path produces), so the transcriber's 24 MB check and 15-minute splitting apply.
+    """
+    out_path = os.path.join(AUDIO_DIR, f"{uuid.uuid4()}.mp3")
+    cmd = ["ffmpeg", "-y", "-i", src_path, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", out_path]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise AudioExtractionError("ffmpeg is not installed or not on PATH.")
+
+    if proc.returncode != 0 or not os.path.exists(out_path):
+        raise AudioExtractionError("Could not read that file as audio. It may be corrupted or not an audio file.")
+    if os.path.getsize(out_path) < 5000:
+        os.remove(out_path)
+        raise AudioExtractionError("Uploaded audio is too short or empty to process.")
+    return out_path

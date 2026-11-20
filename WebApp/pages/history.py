@@ -1,4 +1,5 @@
 import streamlit as st
+from common import show_summary,show_roles
 
 def app():
     st.markdown("## 🕘 History")
@@ -25,9 +26,11 @@ def app():
                     st.markdown(f"**Video:** {title}")
                     st.markdown(f"**URL:** {meta.get('source')}")
                     st.markdown("**Summary:**")
-                    st.write(meta.get("summary"))
+                    #st.write(meta.get("summary"))
+                    show_summary(job_id, meta, "history")
                     st.markdown("**Entities:**")
                     st.write(meta.get("entities"))
+                show_roles(meta)
             elif status == "failed":
                 st.error(meta.get("error"))
             else:
